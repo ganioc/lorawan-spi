@@ -1,7 +1,7 @@
 ## For usb spi related 
 
 LIBLORAGW_VERSION := `cat ../VERSION`
-# include library.cfg
+include local.cfg
 include ../target.cfg
 
 ### constant symbols
