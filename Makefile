@@ -8,7 +8,7 @@ export
 
 .PHONY: all clean install install_conf libtools libloragw packet_forwarder util_net_downlink util_chip_id util_boot util_spectral_scan
 
-all: libtools libloragw packet_forwarder util_net_downlink util_chip_id util_boot util_spectral_scan
+all: libtools libloragw packet_forwarder util_net_downlink util_chip_id util_boot util_spectral_scan libspi
 
 libtools:
 	$(MAKE) all -e -C $@
@@ -31,6 +31,9 @@ util_boot: libloragw
 util_spectral_scan: libloragw
 	$(MAKE) all -e -C $@
 
+libspi: libloragw
+	$(MAKE) all -e -C $@
+
 clean:
 	$(MAKE) clean -e -C libtools
 	$(MAKE) clean -e -C libloragw
@@ -39,6 +42,7 @@ clean:
 	$(MAKE) clean -e -C util_chip_id
 	$(MAKE) clean -e -C util_boot
 	$(MAKE) clean -e -C util_spectral_scan
+	$(MAKE) clean -e -C libspi
 
 install:
 	$(MAKE) install -e -C libloragw
