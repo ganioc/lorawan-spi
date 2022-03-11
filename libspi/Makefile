@@ -40,7 +40,7 @@ APP_LIBS := -lloragw -lm -ltinymt32 -lrt
 LIB_PATH := ../libloragw
 
 ### Expand build options
-CFLAGS := -std=c99 $(WARN_CFLAGS) $(OPT_CFLAGS) $(DEBUG_CFLAGS)
+CFLAGS := -D_DEFAULT_SOURCE  -std=c99 $(WARN_CFLAGS) $(OPT_CFLAGS) $(DEBUG_CFLAGS)
 CC := $(CROSS_COMPILE)gcc
 AR := $(CROSS_COMPILE)ar
 
