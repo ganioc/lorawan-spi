@@ -14,6 +14,8 @@ Description: USB SPI lib
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>     /* getopt_long */
+#include <fcntl.h>
+#include <termios.h>
 
 #include "loragw_hal.h"
 #include "loragw_reg.h"
@@ -26,7 +28,28 @@ void usage(void) {
     printf(" -d --device  # setting device path\n\t--device /dev/ttyUSB0\n");
     printf("\n");
 }
+int open_uart(char* path){
+    int fd; /* File descriptor for the port */
 
+
+    fd = open(path, O_RDWR | O_NOCTTY | O_NDELAY);
+    if (fd == -1)
+    {
+   /*
+    * Could not open the port.
+    */
+
+        perror("open_port: Unable to open /dev/ttyf1 - ");
+    }
+    else
+        fcntl(fd, F_SETFL, 0);
+
+    return (fd);
+}
+int close_uart(int fd){
+    return close(fd);
+
+}
 int main(int argc, char **argv){
     unsigned int arg_u;
     uint8_t clocksource = 0;
@@ -35,6 +58,7 @@ int main(int argc, char **argv){
     struct lgw_conf_rxrf_s rfconf;
     uint64_t eui;
     char DEVICE_NAME[128];
+    int fd;
 
     int i;
     /* Parameter parsing */
@@ -71,6 +95,11 @@ int main(int argc, char **argv){
         usage();
         return -1;
     }
+    printf("Open uart: %s\n", DEVICE_NAME);
+    fd = open_uart(DEVICE_NAME);
+
+    printf("Close uart: %d\n", fd);
+    close_uart(fd);
 
     return 0;
 }
