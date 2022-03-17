@@ -8,7 +8,7 @@ Description: USB SPI lib
 #if __STDC_VERSION__ >= 199901L
     #define _XOPEN_SOURCE 600
 #else
-    #define _XOPEN_SOURCE 500
+    #define _XOPEN_SOURCE 500s
 #endif
 
 #include <stdio.h>
@@ -22,6 +22,7 @@ Description: USB SPI lib
 #include "loragw_hal.h"
 #include "loragw_reg.h"
 #include "loragw_aux.h"
+#include "libspi.h"
 
 
 void usage(void) {
@@ -69,8 +70,8 @@ int config_uart(int fd){
     tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    tty.c_cc[VTIME] = 10;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
-    tty.c_cc[VMIN] = 0;
+    tty.c_cc[VTIME] = 5;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+    tty.c_cc[VMIN] = 2;
 
     // Set in/out baud rate to be 9600
     // B0,  B50,  B75,  B110,  B134,  B150,  B200, B300, B600, B1200, B1800, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800
@@ -80,18 +81,18 @@ int config_uart(int fd){
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
         printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
     }
-
-
+    return 0;
 }
 int close_uart(int fd){
     return close(fd);
-
 }
 int tx_task(int fd){
     unsigned char msg[] = {0x01, 0x02, 0x03};
     int n;
 
     for(int i=0; i< 10; i++){
+        print_tx_buffer(msg, sizeof(msg));
+
         n = write(fd, msg, sizeof(msg));
         printf("Write out: %d\n", n);
         if(n != sizeof(msg)){
@@ -99,7 +100,7 @@ int tx_task(int fd){
                 sizeof(msg), 
                 sizeof(msg)-n);
         }
-        sleep(1);
+        sleep(3);
     }
     
     return 0;
@@ -111,6 +112,8 @@ int rx_task(int fd){
         n=read(fd,buf,1204);
         if(n){
             printf("RX: %d\n", n);
+            print_rx_buffer(buf,n);
+
         }else if(n<0){
             printf("Error: receiving error\n");
         }else{
@@ -174,7 +177,7 @@ int main(int argc, char **argv){
         return -1;
     }
 
-    if(tx_enabled && rx_enabled || (!tx_enabled && !rx_enabled)){
+    if((tx_enabled && rx_enabled) || (!tx_enabled && !rx_enabled)){
         printf("--tx or --rx\n");
         return -1;
     }
@@ -188,6 +191,8 @@ int main(int argc, char **argv){
         tx_task(fd);
     }else if(rx_enabled){
         rx_task(fd);
+    }else{
+        printf("Unknown operation!\n");
     }
 
     
