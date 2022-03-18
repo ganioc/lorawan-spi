@@ -34,7 +34,7 @@ void usage(void) {
 int open_uart(char* path){
     int fd; /* File descriptor for the port */
 
-
+    printf("Open uart: %s\n", path);
     fd = open(path, O_RDWR | O_NOCTTY | O_NDELAY);
     if (fd == -1)
     {
@@ -43,13 +43,14 @@ int open_uart(char* path){
     */
 
         perror("open_port: Unable to open /dev/ttyf1 - ");
+        exit(-1);
     }
     else
         fcntl(fd, F_SETFL, 0);
 
     return (fd);
 }
-int config_uart(int fd){
+int config_uart(int fd, int speed){
     struct termios tty;
     if(tcgetattr(fd, &tty) != 0) {
         printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
@@ -70,13 +71,15 @@ int config_uart(int fd){
     tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    tty.c_cc[VTIME] = 5;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+    tty.c_cc[VTIME] = 10;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
     tty.c_cc[VMIN] = 2;
 
     // Set in/out baud rate to be 9600
-    // B0,  B50,  B75,  B110,  B134,  B150,  B200, B300, B600, B1200, B1800, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800
-    cfsetispeed(&tty, B9600);
-    cfsetospeed(&tty, B9600);
+    // B0,  B50,  B75,  B110,  B134,  B150,  B200, B300, B600, B1200, 
+    // B1800, B2400, B4800, B9600, B19200, B38400, B57600, B115200, 
+    // B230400, B460800
+    cfsetispeed(&tty, speed);
+    cfsetospeed(&tty, speed);
 
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
         printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
@@ -84,11 +87,15 @@ int config_uart(int fd){
     return 0;
 }
 int close_uart(int fd){
+    printf("Close uart: %d\n", fd);
     return close(fd);
 }
-int tx_task(int fd){
+int tx_task(char * device_name){
+    int fd = open_uart(device_name);
     unsigned char msg[] = {0x01, 0x02, 0x03};
     int n;
+
+    config_uart(fd, B115200);
 
     for(int i=0; i< 10; i++){
         print_tx_buffer(msg, sizeof(msg));
@@ -100,14 +107,19 @@ int tx_task(int fd){
                 sizeof(msg), 
                 sizeof(msg)-n);
         }
-        sleep(3);
+        // sleep(1);
     }
-    
+
+    close_uart(fd);
     return 0;
 }
-int rx_task(int fd){
+int rx_task(char * device_name){
+    int fd = open_uart(device_name);
     int n;
     unsigned char buf[1025];
+
+    config_uart(fd, B115200);
+
     while(true){
         n=read(fd,buf,1204);
         if(n){
@@ -121,6 +133,16 @@ int rx_task(int fd){
         }
     }
 
+    close_uart(fd);
+    return 0;
+}
+int usb2spi_task(char* device_name){
+    int fd = open_uart(device_name);
+
+    config_uart(fd, B230400);
+    
+
+    close_uart(fd);
     return 0;
 }
 int main(int argc, char **argv){
@@ -134,6 +156,7 @@ int main(int argc, char **argv){
     int fd;
     int tx_enabled = 0;
     int rx_enabled = 0;
+    int usb2spi_enabled = 0;
 
     int i;
     /* Parameter parsing */
@@ -143,6 +166,7 @@ int main(int argc, char **argv){
         {"device",1,0,'d'},
         {"tx",0,0,'t'},
         {"rx",0,0,'r'},
+        {"usb2spi",0,0,'u'},
         {0, 0, 0, 0}
     };
 
@@ -161,43 +185,40 @@ int main(int argc, char **argv){
                     break;
             case 'r': rx_enabled = 1;
                     break;
+            case 'u': usb2spi_enabled = 1; 
+                    break;
             default: // printf("Unknown\n");
                     return -1;
                     break;
         }
     }
 
-
-    // printf("libspi ->\n");
-    // parse argv
-    // if DEVICE_NAME is empty, exit
     if(strlen(DEVICE_NAME) == 0){
         printf("--device empty\n");
         usage();
         return -1;
     }
 
+    // usb2spi
+    if(usb2spi_enabled == 1){
+        return usb2spi_task(DEVICE_NAME);
+    }
+
     if((tx_enabled && rx_enabled) || (!tx_enabled && !rx_enabled)){
-        printf("--tx or --rx\n");
+        printf("Error: --tx or --rx\n");
         return -1;
     }
-
-    printf("Open uart: %s\n", DEVICE_NAME);
-    fd = open_uart(DEVICE_NAME);
-
-    config_uart(fd);
-
+    // uart test
     if(tx_enabled){
-        tx_task(fd);
-    }else if(rx_enabled){
-        rx_task(fd);
-    }else{
-        printf("Unknown operation!\n");
+        return tx_task(DEVICE_NAME);
+    }
+    // uart test
+    if(rx_enabled){
+        return rx_task(DEVICE_NAME);
     }
 
+    printf("Unknown operation!\n");
     
-    printf("Close uart: %d\n", fd);
-    close_uart(fd);
 
     return 0;
 }
