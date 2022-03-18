@@ -90,6 +90,44 @@ int close_uart(int fd){
     printf("Close uart: %d\n", fd);
     return close(fd);
 }
+int test_task(char* device_name){
+    printf("test_task\n");
+    int fd = open_uart(device_name);
+    unsigned char buf[1025];
+    unsigned char msg[] = {0xF1, 0x00, 0x03};
+    int n;
+
+    config_uart(fd, B230400);
+    print_tx_buffer(msg, sizeof(msg));
+    n = write(fd, msg, sizeof(msg));
+    printf("TX: %d bytes\n", n);
+
+    // while(true){
+    n = read(fd, buf, 12);
+    if (n)
+    {
+        printf("RX: %d bytes\n", n);
+        print_rx_buffer(buf, n);
+        if(n == 12){
+            printf("Read UID success!\n");
+        }
+    }
+    else if (n < 0)
+    {
+        printf("Error: receiving error\n");
+    }
+    else
+    {
+        printf("RX: timeout\n");
+    }
+
+    // }
+    
+
+    close_uart(fd);
+
+    return 0;
+}
 int tx_task(char * device_name){
     int fd = open_uart(device_name);
     unsigned char msg[] = {0x01, 0x02, 0x03};
@@ -157,6 +195,7 @@ int main(int argc, char **argv){
     int tx_enabled = 0;
     int rx_enabled = 0;
     int usb2spi_enabled = 0;
+    int test_enabled = 0;
 
     int i;
     /* Parameter parsing */
@@ -167,6 +206,7 @@ int main(int argc, char **argv){
         {"tx",0,0,'t'},
         {"rx",0,0,'r'},
         {"usb2spi",0,0,'u'},
+        {"test",0,0,'e'},
         {0, 0, 0, 0}
     };
 
@@ -187,6 +227,8 @@ int main(int argc, char **argv){
                     break;
             case 'u': usb2spi_enabled = 1; 
                     break;
+            case 'e': test_enabled = 1;
+                    break;
             default: // printf("Unknown\n");
                     return -1;
                     break;
@@ -197,6 +239,10 @@ int main(int argc, char **argv){
         printf("--device empty\n");
         usage();
         return -1;
+    }
+
+    if(test_enabled){
+        return test_task(DEVICE_NAME);
     }
 
     // usb2spi
